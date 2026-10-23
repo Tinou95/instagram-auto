@@ -1,0 +1,39 @@
+name: Publier sur Instagram
+on:
+  schedule:
+    # 18h à Paris : 16h UTC l'été, 17h UTC l'hiver. Le script ne publie que s'il est 18h à Paris.
+    - cron: '0 16 * * *'
+    - cron: '0 17 * * *'
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Test à blanc (ne publie rien)'
+        type: boolean
+        default: true
+      force:
+        description: 'Ignorer l’heure et la date de départ'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency: publier
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publier
+        env:
+          FB_TOKEN: ${{ secrets.FB_TOKEN }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry && '1' || '0' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+        run: node publier-suivant.mjs
+      - name: Enregistrer
+        run: |
+          git config user.name "instagram-auto"
+          git config user.email "instagram-auto@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "Post publié" && git push)
